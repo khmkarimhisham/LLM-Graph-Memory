@@ -16,12 +16,8 @@ def main():
     # manager.db.clear_database()
     # print("Database cleared.")
 
-    print("\n--- LLM Graph Memory ---")
-    print("Commands:")
-    print("  tell <fact>  - Add a memory to the graph")
-    print("  ask <query>  - Ask a question based on memory")
-    print("  exit         - Quit the application")
-    print("-" * 24)
+    print("\nHello! What would you like to know?")
+    print("\n")
 
     try:
         while True:
@@ -36,20 +32,9 @@ def main():
             if user_input.lower() == 'exit':
                 break
                 
-            if user_input.lower().startswith("tell "):
-                fact = user_input[5:].strip()
-                print("Processing memory...")
-                manager.add_memory(fact)
-                print("Done.")
-                
-            elif user_input.lower().startswith("ask "):
-                question = user_input[4:].strip()
-                print("Searching memory...")
-                answer = manager.ask(question)
-                print(f"\nAnswer: {answer}")
-                
-            else:
-                print("Invalid command. Use 'tell <fact>' or 'ask <query>'.")
+            print("Thinking...")
+            response = manager.chat(user_input)
+            print(f"\n{response}")
                 
     except KeyboardInterrupt:
         print("\nExiting...")

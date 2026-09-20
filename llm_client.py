@@ -111,20 +111,44 @@ IMPORTANT:
             print(f"Error extracting entities: {e}")
             return []
 
-    def answer_question(self, query: str, context: List[str]) -> str:
-        """Answers a user question based on the provided graph context."""
+    def process_input(self, text: str, context: List[str]) -> Dict:
+        """Extracts operations AND generates a natural response in one call."""
         context_str = "\\n".join(context) if context else "No relevant context found."
-        system_prompt = "You are a helpful AI assistant. Answer the user's question using ONLY the provided graph context. If the context doesn't contain the answer, say you don't know."
         
+        system_prompt = f"""
+You are an intelligent, conversational AI memory agent.
+You receive the user's input and some context retrieved from your graph memory.
+
+You must perform TWO tasks:
+1. Identify any new facts or relationships in the user's input and extract them as graph operations. If there are none, return an empty list.
+2. Provide a natural, conversational response to the user. If they asked a question, answer it using ONLY the provided context. If they just told you something, acknowledge it warmly.
+
+Available graph operations:
+1. MERGE_NODE: Create or update an entity. (Requires: label, name, optional properties). Always do this before creating relationships for new entities.
+2. MERGE_RELATIONSHIP: Create a connection between two entities. (Requires: source_name, target_name, rel_type, optional properties).
+3. UPDATE_RELATIONSHIP: Change properties on an existing connection. (Requires: source_name, target_name, rel_type, properties).
+4. DELETE_RELATIONSHIP: Remove a connection. (Requires: source_name, target_name, rel_type).
+5. REROUTE_RELATIONSHIP: Change the target of a relationship. (Requires: source_name, old_target_name, new_target_name, rel_type, optional properties).
+
+IMPORTANT: You MUST output a JSON object with exactly two keys:
+- "operations": A list of graph operations (can be empty).
+- "response": A string containing your conversational response.
+"""
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Context:\\n{context_str}\\n\\nQuestion: {query}"}
-                ]
+                    {"role": "user", "content": f"Context from Memory:\\n{context_str}\\n\\nUser Input: {text}\\n\\nOutput JSON:"}
+                ],
+                response_format={"type": "json_object"}
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            # Optional debug print
+            # print(f"\n[DEBUG] LLM Response:\n{content}\n")
+            
+            data = json.loads(content)
+            return data
         except Exception as e:
-            print(f"Error answering question: {e}")
-            return "Sorry, I couldn't process that question."
+            print(f"Error processing input: {e}")
+            return {"operations": [], "response": "Sorry, I ran into an error processing that."}
