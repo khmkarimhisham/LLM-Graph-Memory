@@ -9,23 +9,27 @@ class MemoryManager:
         self.llm = LLMClient()
         self.db = GraphDB()
         
-    def chat(self, user_input: str) -> str:
-        """Handles a natural conversation, extracting memories and answering questions."""
-        logger.info(f"User Input: '{user_input}'")
-        
-        # 1. Quickly extract any entities mentioned to pull memory context
+    def get_relevant_context(self, user_input: str) -> list[str]:
+        """Extracts entities from user input and fetches relevant context from the graph database."""
+        logger.info(f"User Input for Context: '{user_input}'")
         entities = self.llm.extract_entities_for_query(user_input)
         context = self.db.get_context(entities) if entities else []
         if context:
             logger.info(f"Pulled context for {entities}: {len(context)} facts.")
+        return context
+
+    def extract_and_store_memory(self, text: str):
+        """Analyzes text, extracts graph operations, and stores them in the graph database."""
+        logger.info(f"Extracting memory from: '{text}'")
         
-        # 2. Let the LLM process the input (extract operations AND generate a conversational response)
-        result = self.llm.process_input(user_input, context)
+        # 1. Extract operations
+        operations = self.llm.extract_graph_operations(text)
         
-        operations = result.get("operations", [])
-        response_text = result.get("response", "I'm sorry, I couldn't process that.")
-        
-        # 3. Apply any operations
+        if not operations:
+            logger.info("No new facts to store.")
+            return
+
+        # 2. Apply operations
         batch_data = []
         for op in operations:
             op_type = op.get("operation")
@@ -63,7 +67,5 @@ class MemoryManager:
             self.db.execute_batch(batch_data)
             logger.info(f"Successfully stored {len(operations)} new facts in memory!")
             
-        return response_text
-        
     def cleanup(self):
         self.db.close()
